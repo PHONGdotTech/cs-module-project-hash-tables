@@ -11,6 +11,83 @@ class HashTableEntry:
 # Hash table can't have fewer than this many slots
 MIN_CAPACITY = 8
 
+class LinkedList:
+    def __init__(self):
+        # first node in the list 
+        self.head = None
+        self.tail = None
+
+    def add_to_end(self, value):
+        new_node = Node(value)
+        if not self.head and not self.tail:
+            self.head = new_node
+            self.tail = new_node
+        else:
+            self.tail.set_next(new_node)
+            self.tail = new_node
+    
+    def remove_from_end(self):
+        # what if the list is empty? 
+        if not self.head and not self.tail:
+            return None
+        # what if the list isn't empty?
+        else:
+            # what node do we want to remove the last node from? 
+            # the last node in the list. keep track with current
+            current = self.head
+            # use previous to keep track of 2nd to last
+            previous = current
+            # if the head does not have a next node, it is the only node, so remove it
+            if current.get_next() is None:
+                self.head = None
+                self.tail = None
+            else:
+                # traverse the list to get the last and next to last element
+                while current.get_next() is not None:
+                    # before assigning next to current, assign current to previous
+                    previous = current
+                    current = current.get_next()
+                # we're at the end of the linked list
+                # set the previous's next node to none to remove the current from list
+                previous.set_next(None)
+            # return current.value to be printed
+            # current.value is head if the only node, else it is last node
+            return current.value
+
+    def add_to_head(self, key, value):
+        new_node = HashTableEntry(key, value)
+
+        if not self.head and not self.tail:
+            self.head = new_node
+            self.tail = new_node
+        else:
+            new_node.set_next(self.head)
+            self.head = new_node
+    
+    def remove_from_head(self):
+        # what if the list is empty?
+        if not self.head:
+            return None
+        # what if it isn't empty?
+        else:
+            # we want to return the value at the current head 
+            value = self.head.get_value()
+            # remove the value at the head 
+            # update self.head 
+            self.head = self.head.get_next()
+            return value
+
+    def get_length(self):
+        if not self.head:
+            return 0
+        else:
+            current = self.head
+            length = 1
+            while current.get_next() is not None:
+                current = current.get_next()
+                length = length+1
+            return length
+
 
 class HashTable:
     """
@@ -23,7 +100,8 @@ class HashTable:
     def __init__(self, capacity):
         # Your code here
         self.capacity = capacity
-        self.data = [None] * self.capacity
+        self.data = [None] * capacity
+        self.used_slots = 0
 
 
     def get_num_slots(self):
@@ -37,6 +115,7 @@ class HashTable:
         Implement this.
         """
         # Your code here
+        return self.capacity
 
 
     def get_load_factor(self):
@@ -46,7 +125,7 @@ class HashTable:
         Implement this.
         """
         # Your code here
-
+        return self.used_slots / self.capacity
 
     def fnv1(self, key):
         """
@@ -89,8 +168,23 @@ class HashTable:
         """
         # Your code here
         slot = self.hash_index(key)
-        self.data[slot] = HashTableEntry(key, value)
+        if self.data[slot] is None:
+            self.used_slots += 1
+            ll = LinkedList()
+            ll.add_to_head(key, value)
+            self.data[slot] = ll
+        else:
+            current = self.data[slot].head
+            prev = current
+            while current is not None:
+                if current.key == key:
+                    current.value = value
+                    return
 
+                prev = current
+                current = current.next
+            
+            prev.next = HashTableEntry(key, value)
 
 
     def delete(self, key):
@@ -102,7 +196,29 @@ class HashTable:
         Implement this.
         """
         # Your code here
-        self.put(key, None)
+        slot = self.hash_index(key)
+        hash_entry = self.data[slot]
+
+        if hash_entry is None:
+            return None
+        else:
+            current = self.data[slot].head
+            prev = current
+
+            if self.data[slot].head.key == key:
+                value = current.value
+                self.data[slot].head = current.next
+                self.used_slots -= 1
+                return value
+            else:
+                while current is not None:
+                    if current.key == key:
+                        prev.next = current.next
+                        self.used_slots -= 1
+                        return current.value
+
+                    prev = current
+                    current = current.next
 
 
     def get(self, key):
@@ -117,10 +233,15 @@ class HashTable:
         slot = self.hash_index(key)
         hash_entry = self.data[slot]
 
-        if hash_entry is not None:
-            return hash_entry.value
+        if hash_entry is None:
+            return
+        else:
+            current = self.data[slot].head
+            while current is not None:
+                if current.key == key:
+                    return current.value
 
-        return None
+                current = current.next
 
 
     def resize(self, new_capacity):
@@ -131,8 +252,16 @@ class HashTable:
         Implement this.
         """
         # Your code here
+        ht = HashTable(new_capacity)
+        for slot in self.data:
+            if slot is not None:
+                current = slot.head
+                while current is not None:
+                    ht.put(current.key, current.value)
+                    current = current.next
 
-
+        self.capacity = new_capacity
+        self.data = ht.data
 
 if __name__ == "__main__":
     ht = HashTable(8)
